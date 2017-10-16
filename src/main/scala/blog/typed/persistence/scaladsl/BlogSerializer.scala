@@ -1,66 +1,69 @@
 package blog.typed.persistence.scaladsl
 
-import java.nio.charset.StandardCharsets
-import akka.serialization.SerializerWithStringManifest
-import akka.serialization.BaseSerializer
-import blog.typed.persistence.scaladsl.protobuf.BlogPostMessages
 import java.io.NotSerializableException
-import akka.typed.scaladsl.adapter._
+
+import akka.serialization.{BaseSerializer, SerializerWithStringManifest}
 import akka.typed.cluster.ActorRefResolver
-import akka.typed.ActorRef
+import akka.typed.scaladsl.adapter._
+import blog.typed.persistence.scaladsl.protobuf.BlogPostMessages
 
 class BlogSerializer(val system: akka.actor.ExtendedActorSystem)
   extends SerializerWithStringManifest with BaseSerializer {
 
   private val resolver = ActorRefResolver(system.toTyped)
 
-  private val BlogStateManifest = "aa"
-  private val PostContentManifest = "ab"
-  private val AddPostManifest = "ba"
-  private val AddPostDoneManifest = "bb"
-  private val ChangeBodyManifest = "bc"
-  private val PublishManifest = "bd"
-  private val PostAddedManifest = "ca"
-  private val BodyChangedManifest = "cb"
-  private val PublishedManifest = "cc"
+  private val BlogWithContentManifest = "aa"
+  private val PublishedBlogDataManifest = "ab"
+  private val PostContentManifest = "ba"
+  private val AddPostManifest = "bb"
+  private val AddPostDoneManifest = "bc"
+  private val ChangeBodyManifest = "bd"
+  private val PublishManifest = "ca"
+  private val PostAddedManifest = "cb"
+  private val BodyChangedManifest = "cd"
+  private val PublishedManifest = "da"
 
   override def manifest(o: AnyRef): String = o match {
-    case _: BlogState   ⇒ BlogStateManifest
+    case _: BlogWithContent ⇒ BlogWithContentManifest
+    case _: PublishedBlog ⇒ PublishedBlogDataManifest
     case _: PostContent ⇒ PostContentManifest
-    case _: AddPost     ⇒ AddPostManifest
+    case _: AddPost ⇒ AddPostManifest
     case _: AddPostDone ⇒ AddPostDoneManifest
-    case _: ChangeBody  ⇒ ChangeBodyManifest
-    case _: Publish     ⇒ PublishManifest
-    case _: PostAdded   ⇒ PostAddedManifest
+    case _: ChangeBody ⇒ ChangeBodyManifest
+    case _: Publish ⇒ PublishManifest
+    case _: PostAdded ⇒ PostAddedManifest
     case _: BodyChanged ⇒ BodyChangedManifest
-    case _: Published   ⇒ PublishedManifest
+    case _: Published ⇒ PublishedManifest
     case _ ⇒
       throw new IllegalArgumentException(s"Can't serialize object of type ${o.getClass} in [${getClass.getName}]")
   }
 
   override def toBinary(o: AnyRef): Array[Byte] = o match {
-    case a: BlogState   ⇒ blogStateToBinary(a)
+    case a: BlogData ⇒ blogStateToBinary(a)
     case a: PostContent ⇒ postContentToBinary(a)
-    case a: AddPost     ⇒ addPostToBinary(a)
+    case a: AddPost ⇒ addPostToBinary(a)
     case a: AddPostDone ⇒ addPostDoneToBinary(a)
-    case a: ChangeBody  ⇒ changeBodyToBinary(a)
-    case a: Publish     ⇒ publishToBinary(a)
-    case a: PostAdded   ⇒ postAddedToBinary(a)
+    case a: ChangeBody ⇒ changeBodyToBinary(a)
+    case a: Publish ⇒ publishToBinary(a)
+    case a: PostAdded ⇒ postAddedToBinary(a)
     case a: BodyChanged ⇒ bodyChangedToBinary(a)
-    case a: Published   ⇒ publishedToBinary(a)
+    case a: Published ⇒ publishedToBinary(a)
 
     case _ ⇒
       throw new IllegalArgumentException(s"Cannot serialize object of type [${o.getClass.getName}]")
   }
 
-  private def blogStateToBinary(a: BlogState): Array[Byte] = {
-    val builder = BlogPostMessages.BlogState.newBuilder()
-    a.content match {
-      case Some(c) => builder.setContent(postContentToProto(c))
-      case None    => // no content
+  private def blogStateToBinary(a: BlogData): Array[Byte] = {
+    a match {
+      case b: BlogWithContent =>
+        val builder = BlogPostMessages.BlogWithContentData.newBuilder()
+        builder.setContent(postContentToProto(b.content))
+        builder.build().toByteArray
+      case b: PublishedBlog =>
+        val builder = BlogPostMessages.PublishedBlogData.newBuilder()
+        builder.setContent(postContentToProto(b.content))
+        builder.build().toByteArray
     }
-    builder.setPublished(a.published)
-    builder.build().toByteArray()
   }
 
   private def postContentToBinary(a: PostContent): Array[Byte] = {
@@ -118,30 +121,36 @@ class BlogSerializer(val system: akka.actor.ExtendedActorSystem)
   }
 
   override def fromBinary(bytes: Array[Byte], manifest: String): AnyRef = manifest match {
-    case BlogStateManifest   ⇒ blogStateFromBinary(bytes)
+    case BlogWithContentManifest ⇒ blogWithContentFromBinary(bytes)
+    case PublishedBlogDataManifest ⇒ publishedBlogFromBinary(bytes)
     case PostContentManifest ⇒ postContentFromBinary(bytes)
-    case AddPostManifest     ⇒ addPostFromBinary(bytes)
+    case AddPostManifest ⇒ addPostFromBinary(bytes)
     case AddPostDoneManifest ⇒ addPostDoneFromBinary(bytes)
-    case ChangeBodyManifest  ⇒ changeBodyFromBinary(bytes)
-    case PublishManifest     ⇒ publishFromBinary(bytes)
-    case PostAddedManifest   ⇒ postAddedFromBinary(bytes)
+    case ChangeBodyManifest ⇒ changeBodyFromBinary(bytes)
+    case PublishManifest ⇒ publishFromBinary(bytes)
+    case PostAddedManifest ⇒ postAddedFromBinary(bytes)
     case BodyChangedManifest ⇒ bodyChangedFromBinary(bytes)
-    case PublishedManifest   ⇒ publishedFromBinary(bytes)
+    case PublishedManifest ⇒ publishedFromBinary(bytes)
 
     case _ ⇒
       throw new NotSerializableException(
         s"Unimplemented deserialization of message with manifest [$manifest] in [${getClass.getName}]")
   }
 
-  private def blogStateFromBinary(bytes: Array[Byte]): BlogState = {
-    val a = BlogPostMessages.BlogState.parseFrom(bytes)
-    val content =
-      if (a.hasContent) {
-        val c = a.getContent
-        Some(PostContent(c.getPostId, c.getTitle, c.getBody))
-      } else None
+  private def blogWithContentFromBinary(bytes: Array[Byte]): BlogData = {
+    val a = BlogPostMessages.BlogWithContentData.parseFrom(bytes)
+    if (a.hasContent) {
+      val c = a.getContent
+      BlogWithContent(PostContent(c.getPostId, c.getTitle, c.getBody))
+    } else EmptyBlog()
+  }
 
-    BlogState(content, a.getPublished)
+  private def publishedBlogFromBinary(bytes: Array[Byte]): BlogData = {
+    val a = BlogPostMessages.PublishedBlogData.parseFrom(bytes)
+    if (a.hasContent) {
+      val c = a.getContent
+      PublishedBlog(PostContent(c.getPostId, c.getTitle, c.getBody))
+    } else EmptyBlog()
   }
 
   private def postContentFromBinary(bytes: Array[Byte]): PostContent = {

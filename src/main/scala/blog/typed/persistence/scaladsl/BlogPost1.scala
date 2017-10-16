@@ -6,9 +6,9 @@ import akka.typed.Behavior
 object BlogPost1 {
 
   def behavior: Behavior[BlogCommand] =
-    PersistentActor.immutable[BlogCommand, BlogEvent, BlogState](
+    PersistentActor.immutable[BlogCommand, BlogEvent, BlogData](
       persistenceId = "abc",
-      initialState = BlogState.empty,
+      initialState = BlogData.empty,
       actions = PersistentActor.Actions { (ctx, cmd, state) ⇒ ??? },
       applyEvent = (evt, state) ⇒ ???)
 

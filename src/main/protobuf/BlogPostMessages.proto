@@ -8,9 +8,11 @@ option optimize_for = SPEED;
 
 // state
 
-message BlogState {
+message PublishedBlogData {
   optional PostContent content = 1;
-  optional bool published = 2;
+}
+message BlogWithContentData {
+  optional PostContent content = 1;
 }
 
 message PostContent {
